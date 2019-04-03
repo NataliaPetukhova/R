@@ -1,0 +1,47 @@
+---
+title: "R_task_02_Natalia"
+author: "Natalia"
+date: "1 April 2019"
+output: pdf_document
+---
+```{r}
+set.seed(42)
+```
+
+
+```{r}
+data_selection = function(data, rows_select, columns_select){
+ data_analysis = function(value) {
+ data = data[rows_select,columns_select]
+      if (is.numeric(value)) {
+        return(list(mean(value) & sd(value)))
+      } else {
+         return(table(value))
+         }
+  }    
+ analysis = sapply(data, data_analysis)
+ print(list(data, analysis))
+ }
+  
+```
+
+```{r}
+library(datasets)
+library(ggplot2)
+head(chickwts)
+data = chickwts
+a = data_selection(chickwts, 1:23, c("weight", "feed"))
+a
+```
+
+```{r}
+library(datasets)
+library(ggplot2)
+head(ChickWeight)
+data = ChickWeight
+b = data_selection(ChickWeight, c(1:23,50:100), c("weight", "Diet"))
+b
+```
+
+
+
