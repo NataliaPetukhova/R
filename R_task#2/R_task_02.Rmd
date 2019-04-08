@@ -11,36 +11,35 @@ set.seed(42)
 
 ```{r}
 data_selection = function(data, rows_select, columns_select){
- data_analysis = function(value) {
- data = data[rows_select,columns_select]
-      if (is.numeric(value)) {
-        return(list(mean(value) & sd(value)))
+ data_analysis = function(x) {
+      if (is.numeric(x)) {
+        return(list(mean(x), sd(x)))
       } else {
-         return(table(value))
+         return(table(x))
          }
   }    
- analysis = sapply(data, data_analysis)
- print(list(data, analysis))
+ analysis = list()
+ data_subset = data.frame(data[rows_select, columns_select])
+ listn = 1 
+ for(cl in data_subset) {
+   analysis[listn] = list(data_analysis(cl))
+   listn =+ 1
+ }
+ return(list(data_subset, analysis))
  }
   
 ```
 
 ```{r}
-library(datasets)
-library(ggplot2)
 head(chickwts)
-data = chickwts
-a = data_selection(chickwts, 1:23, c("weight", "feed"))
-a
+data_selection(chickwts, c(1:23), c("weight", "feed"))
+
 ```
 
 ```{r}
-library(datasets)
-library(ggplot2)
-head(ChickWeight)
-data = ChickWeight
-b = data_selection(ChickWeight, c(1:23,50:100), c("weight", "Diet"))
-b
+
+data_selection(ChickWeight, c(1:23,50:100), c("weight", "Diet"))
+
 ```
 
 
