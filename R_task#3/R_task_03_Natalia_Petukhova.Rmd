@@ -1,0 +1,40 @@
+---
+title: "R_task_03_Natalia"
+author: "Natalia"
+date: "4 April 2019"
+output: pdf_document
+---
+```{r}
+set.seed(42)
+```
+
+
+```{r}
+
+data_selection = function(data, rows_select, columns_select){
+data_analysis = function(x){
+ data = as.matrix(rows_select, columns_select)
+      if (is.numeric(x)) {
+        return(list(mean(x), sd(x)))
+      } else {
+         return(table(x))
+         }
+}
+ analysis = lapply(data, data_analysis)
+ print(list(data, analysis))
+ }
+```
+
+
+```{r}
+head(chickwts)
+data_selection(chickwts, c(1:23), c("weight", "feed"))
+
+```
+
+```{r}
+head(ChickWeight)
+data_selection(ChickWeight, c(1:23), c("weight", "Diet"))
+
+```
+
