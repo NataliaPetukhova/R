@@ -1,0 +1,96 @@
+---
+title: "HW#4"
+author: "Natalia"
+date: "13 April 2019"
+output: pdf_document
+---
+```{r}
+set.seed(42)
+
+setwd("C:\\Users\\Natalia\\Desktop\\ITMO\\R\\R_task#4")
+raw_df = readRDS("weather.rds")
+
+```
+
+#Exploring dataset
+```{r}
+summary(raw_df)
+head(raw_df)
+str(raw_df)
+View(raw_df)
+
+```
+
+# Problems of the dataset:
+
+1) "X" collumn is just an index which is not needed for further analysis - have to be deleted.
+2) It is better to assign our samples as [Year+month+day] from X number of columns.
+3) Split [measure] column into multiple columns
+
+
+```{r}
+# Packages included
+library(tidyr)
+library(stringr)
+# Get rid of [X] column
+tidy_df = raw_df[,-1]
+head(tidy_df)
+# Make dataframe from wide to long
+tidy_df = gather(tidy_df, day, value, X1:X31)
+# Make dataframe from long to wide
+tidy_df = spread(tidy_df, measure, value)
+# Assign [Year+month+day] as samples names
+tidy_df$day = str_sub(tidy_df$day, 2, 3)
+tidy_df = unite(tidy_df, Date, year, month, day, sep = '_')
+head(tidy_df)
+```
+
+3) Then it was noticed that some samples have all NAs data because of unexisting days (February 30, etc). 
+   Also, the measurements in the end of the table are NAs as well.  
+
+
+```{r}
+tidy_df = na.omit(tidy_df)
+```
+
+4) Formatting of the columns:
+
+```{r}
+tidy_df$PrecipitationIn = as.numeric(tidy_df$PrecipitationIn, na.string='T')
+# Make columns with values as numbers numeric
+tidy_df[,c(2,4:23)] = lapply(tidy_df[,c(2,4:23)], as.numeric)
+# Check the dataframe after formatting
+row.names(tidy_df) = 1:nrow(tidy_df)
+summary(tidy_df)
+```
+
+```{r}
+# Make [Events] column  as factor
+tidy_df$Events = as.factor(tidy_df$Events)
+levels(tidy_df$Events)[1] = "Ordinary day"
+head(tidy_df)
+```
+
+5) Plot the numeric columns data
+
+```{r}
+boxplot(tidy_df[, c(2, 3:23)])
+```
+
+6) Obvious outlier was detected - the [Humidity] was 1000% at one point of measurements that seems to be unreal   data (extra "0" was added mistakenly) and should be changed for more realistic value = 100%.
+ 
+```{r}
+tidy_df[135,6] = 100
+# Check the plot after additing
+boxplot(tidy_df[, c(2, 3:23)])
+```
+
+# Finally, the dataset seems to be clear and tidy after processing and ready for further analysis.
+
+Difference between "raw" and "tidy" dataframes.
+ 
+```{r}
+head(raw_df)
+head(tidy_df)
+```
+
