@@ -1,0 +1,41 @@
+---
+title: "Task#5"
+author: "Natalia"
+date: "23 April 2019"
+output: pdf_document
+---
+```{r}
+
+set.seed(42)
+
+library(tidyverse)
+library(magrittr) 
+library(dplyr)
+```
+
+```{r}
+
+data_analysis = function(df, row_select, column_select){
+  analysis = function(x){
+    if (is.numeric(x)){
+      return(mean(x))
+    } else {
+      return(summary(factor(x)))
+    }
+  }
+  data = df[row_select, column_select]
+  df %<>% lapply(analysis) %<>% list()
+  list(data, df)
+}
+```
+```
+
+```{r}
+data_analysis(ChickWeight, c(1:23), c(1:4))
+```
+
+
+```{r}
+data_analysis(chickwts, c(1:23), c(1:2))
+```
+
