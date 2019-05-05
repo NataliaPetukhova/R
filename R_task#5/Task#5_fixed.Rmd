@@ -1,0 +1,50 @@
+---
+title: "Task#5_fixed"
+author: "Natalia"
+date: "2 May 2019"
+output: pdf_document
+---
+
+```{r}
+set.seed(42)
+
+library(dplyr)
+```
+
+```{r}
+df_analysis= function(df, row_select, column_select){
+  analysis = function(x){
+    if (is.numeric(x)){
+      return(sum(x))
+    } else {
+      return(summary(factor(x)))
+    }
+  }
+  if (!is.character(column_select)){
+    columns = colnames(df)[column_select]
+  } else {
+    columns = column_select
+  }
+  
+  df = df %>%
+    select(columns)
+  df = df[row_select, ]
+  
+  return(list(df, lapply(df, analysis)))
+}  
+```
+
+```{r}
+df = ChickWeight
+result = df_analysis(df, c(1:23), c("weight", "Diet"))
+result[1]
+result[2]
+```
+
+```{r}
+df = chickwts
+result = df_analysis(df, c(T,F), c("weight", "feed"))
+result[1]
+result[2]
+```
+
