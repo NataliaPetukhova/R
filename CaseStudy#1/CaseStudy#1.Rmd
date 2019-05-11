@@ -1,0 +1,105 @@
+---
+title: "Practice#1"
+author: "Natalia"
+date: "10 May 2019"
+output: pdf_document
+---
+```{r}
+set.seed(42)
+
+load("C://Users//Natalia//Desktop//ITMO//R//Practice#1//CHIS2009_reduced_2.Rdata")
+
+head(adult)
+summary(adult)
+```
+
+
+```{r}
+library(ggplot2)
+
+p = ggplot(adult, aes(x = SRAGE_P, fill = factor(RBMI)))
+p + geom_histogram(binwidth = 1)
+
+```
+
+```{r}
+library(dplyr)
+SRAGE_P= as.numeric(adult$SRAGE_P)
+df = filter(adult, SRAGE_P < 85)
+summary(df)
+
+```
+
+```{r}
+df %>% filter(BMI_P >= 16) %>% filter(BMI_P < 52) %>% head()
+```
+
+```{r}
+library(dplyr)
+df$RACEHPR2 = factor(df$RACEHPR2, labels = c("Latino", "Asian", "African American", "White"))
+levels(df$RACEHPR2)
+head(df)
+
+```
+
+
+```{r}
+library(dplyr)
+df$RBMI = factor(df$RBMI, labels = c("Under", "Normal", "Over", "Obese"))
+levels(df$RBMI)
+head(df)
+```
+
+```{r}
+
+ggplot(df, aes(x = SRAGE_P, fill = factor(RBMI))) +
+  geom_histogram(binwidth = 1) + 
+  facet_grid(RBMI ~.) 
+
+```
+
+#Add facet_grid
+```{r}
+BMI_fill = scale_fill_brewer("BMI Category", palette = "Reds")
+strip = theme(strip.text.y = element_blank()) 
+
+ggplot(df, aes(x = SRAGE_P, fill = factor(RBMI))) + 
+  geom_histogram(binwidth = 1) + 
+  facet_grid(RBMI ~.) +
+  BMI_fill + theme_classic() + strip
+```
+
+#Proportional histogram
+```{r}
+ggplot(df, aes (x = SRAGE_P, fill= factor(RBMI))) + 
+  geom_histogram(aes(y = ..count../sum(..count..)), binwidth = 1, position = "fill") +
+  BMI_fill
+```
+
+#Combine facet & proportional histogram
+```{r}
+ggplot(df, aes(x = SRAGE_P, fill = as.factor(RBMI))) + 
+  geom_histogram(aes(y = ..count../sum(..count..)), binwidth = 1, position = "fill") + 
+  facet_grid(RBMI ~.) +
+  BMI_fill + theme_classic() + strip
+```
+
+
+#Create frequency table
+```{r}
+df1 = table(df$RBMI, df$SRAGE_P)
+proportion = apply(df1, 2, function(x) x/sum(x))
+```
+
+#Plot frequency table
+```{r}
+library(reshape2)
+df_prop = melt(proportion)
+names(df_prop) = c("FILL", "Age", "value")
+
+ggplot(df_prop, aes(x = Age, y = value, fill = as.factor(FILL))) +
+  geom_col(position = "stack") +
+  BMI_fill + 
+  facet_grid(FILL ~ .) 
+```
+
