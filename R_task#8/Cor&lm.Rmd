@@ -1,0 +1,72 @@
+---
+title: "Cor&lm"
+author: "Natalia"
+date: "29 May 2019"
+output: pdf_document
+---
+
+#Task1
+```{r}
+set.seed(42)
+
+data <- readRDS('C://Users//Natalia//Desktop//ITMO//R//R_task#8//anscombe.rds')
+View(data)
+```
+
+```{r}
+library(ggplot2)
+ggplot(data = data, aes(x, y, color = as.factor(set))) + 
+  geom_point() + 
+  scale_color_brewer(type = "qual", palette = "Set2") +
+  facet_wrap(.~set)
+```
+
+```{r}
+library(dplyr)
+
+df1 <- data %>%
+  group_by(set) %>%
+  mutate(mean.x = mean(x), sd.x = sd(x))
+
+df2 <- data %>%
+  group_by(set) %>%
+  mutate(mean.y = mean(y), sd.y = sd(y))
+```
+
+```{r}
+
+data <- merge(df1, df2)     
+data
+
+```
+
+```{r}
+library(plyr)
+sdata <- ddply(data, c("set"), summarise,
+               mean.x = mean(x),
+               mean.y = mean(y),
+               sd.x   = sd(x),
+               sd.y = sd(y)
+              
+)
+sdata
+```
+
+```{r}
+library(plyr)
+ddply(data, "set", summarise, corr=cor(x, y),
+      corspm = cor(x,y, method = "spearman"),
+      p.value = cor.test(x,y)$p.value)
+```
+
+```{r}
+ggplot(data = data, aes(x, y, color = as.factor(set))) + 
+  geom_point() + 
+  scale_color_brewer(type = "qual", palette = 2) + 
+  geom_smooth(color="pink", size = 1, method="lm") +
+  facet_wrap(.~set)
+```
+
+
+
+
