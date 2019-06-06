@@ -1,0 +1,459 @@
+---
+title: "Machine learning models for cancer predictive analysis"
+author: "Natalia"
+date: "28 May 2019"
+output: pdf_document
+---
+```{r}
+
+data <- read.csv("C://Users//Natalia//Desktop//ITMO//R//R project//cancer data//breast cancer coimbra//dataR2.csv", header = TRUE, stringsAsFactors = TRUE)
+View(data)
+```
+
+#Analyse the dataset and tidy it up.
+```{r}
+# Analyse the data - checking for values, NAs, data type.
+summary(data)
+str(data)
+```
+
+```{r}
+head(data)
+dim(data)
+```
+
+```{r}
+library(tidyverse)
+map_int(data, function(.x) sum(is.na(.x)))
+```
+
+
+```{r}
+library(plyr)
+#change value names in "Classifications" for "healthy" and "cancer":
+
+data$Classification <- factor(as.character(data$Classification))
+data$Classification <- revalue(data$Classification, c("1"="healthy"))
+data$Classification <- revalue(data$Classification, c("2"="cancer"))
+head(data)
+
+```
+
+```{r}
+data <- as.data.frame(data, stringsAsFactors=T)
+data$Classification <- factor(as.character(data$Classification))
+sapply(data,mode)
+
+```
+
+#DATA EXPLORATION
+
+#Hierarchical clustering
+
+```{r}
+
+library(sparcl)
+hc <- hclust(dist(data[,1:9]), method = "complete")
+ColorDendrogram(hc,y=factor(data$Classification), main = "Hierarchical clustering", branchlength=5)
+
+```
+Most of the benign (black) and malignant (red) samples cluster together.
+
+#K-means clustering
+```{r}
+fit <- kmeans(data[,c(1:9)], 2)
+names(fit)
+```
+
+```{r}
+#k-means did a fairly good job
+table(data.frame(fit$cluster,data[,10]))
+
+```
+
+#Response variable for classification
+
+```{r}
+library(ggplot2)
+
+ggplot(data, aes(x = Classification, fill = Classification)) +
+  geom_bar()
+```
+
+#Response variable for regression
+
+```{r}
+ggplot(data, aes(x = Age)) +
+  geom_histogram(stat = "count")
+```
+
+#Principal Component Analysis
+
+```{r}
+library(pcaGoPromoter)
+library(ellipse)
+```
+
+
+```{r}
+data <-na.omit(data)
+```
+
+
+```{r}
+# perform pca and extract scores
+pcaOutput <- pca(t(data[, 1:9]), printDropped = FALSE, scale = TRUE, center = TRUE)
+pcaOutput2 <- as.data.frame(pcaOutput$scores)
+```
+
+```{r}
+# define groups for plotting:
+
+pcaOutput2$groups <- data$Classification
+
+centroids <- aggregate(cbind(PC1, PC2) ~ groups, pcaOutput2, mean)
+
+conf.rgn  <- do.call(rbind, lapply(unique(pcaOutput2$groups), function(t)
+  data.frame(groups = as.character(t),
+             ellipse(cov(pcaOutput2[pcaOutput2$groups == t, 1:2]),
+                   centre = as.matrix(centroids[centroids$groups == t, 2:3]),
+                   level = 0.95),
+             stringsAsFactors = FALSE)))
+
+
+#Plot PCA with variance %:
+
+ggplot(data = pcaOutput2, aes(x = PC1, y = PC2, group = groups, color = groups)) + 
+    geom_polygon(data = conf.rgn, aes(fill = groups), alpha = 0.2) +
+    geom_point(size = 2, alpha = 0.6) + 
+    scale_color_brewer(palette = "Set1") +
+    labs(color = "",
+         fill = "",
+         x = paste0("PC1: ", round(pcaOutput$pov[1], digits = 2) * 100, "% variance"),
+         y = paste0("PC2: ", round(pcaOutput$pov[2], digits = 2) * 100, "% variance")) 
+```
+
+#Features
+
+```{r}
+library(tidyr)
+
+gather(data, x, y, Age:MCP.1) %>%
+  ggplot(aes(x = y, color = Classification, fill = Classification)) +
+    geom_density(alpha = 0.3) +
+    facet_wrap( ~ x, scales = "free")
+
+```
+
+
+#MACHINE LEARNING PACKAGES FOR R
+
+#caret
+```{r}
+# configure multicore
+library(doParallel)
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+
+library(caret)
+```
+
+#Training, validation and test data
+
+```{r}
+set.seed(42)
+index <- createDataPartition(data$Classification, p = 0.7, list = FALSE)
+train_data <- data[index, ]
+test_data  <- data[-index, ]
+```
+
+```{r fig.height = 8, fig.width = 7}
+library(dplyr)
+
+rbind(data.frame(group = "train", train_data),
+      data.frame(group = "test", test_data)) %>%
+  gather(x, y,Age:MCP.1) %>%
+  ggplot(aes(x = y, color = group, fill = group)) +
+    geom_density(alpha = 0.3) +
+    facet_wrap( ~ x, scales = "free", ncol = 2)
+```
+
+#REGRESSION
+
+```{r}
+set.seed(42)
+model_glm <- caret::train(Age ~ .,
+                          data = train_data,
+                          method = "glm",
+                          preProcess = c("scale", "center"),
+                          trControl = trainControl(method = "repeatedcv", 
+                                                  number = 10, 
+                                                  repeats = 10, 
+                                                  savePredictions = TRUE, 
+                                                  verboseIter = FALSE))
+```
+
+```{r}
+model_glm
+```
+
+```{r}
+predictions <- predict(model_glm, test_data)
+```
+
+```{r}
+# model_glm$finalModel$linear.predictors == model_glm$finalModel$fitted.values
+data.frame(residuals = resid(model_glm),
+           predictors = model_glm$finalModel$linear.predictors) %>%
+  ggplot(aes(x = predictors, y = residuals)) +
+    geom_jitter() +
+    geom_smooth(method = "lm")
+```
+
+```{r}
+# y == train_data$Age
+data.frame(residuals = resid(model_glm),
+           y = model_glm$finalModel$y) %>%
+  ggplot(aes(x = y, y = residuals)) +
+    geom_jitter() +
+    geom_smooth(method = "lm")
+```
+
+```{r}
+data.frame(actual = test_data$Age,
+           predicted = predictions) %>%
+  ggplot(aes(x = actual, y = predicted)) +
+    geom_jitter() +
+    geom_smooth(method = "lm")
+```
+
+#CLASSIFICATION
+
+#Decision trees
+
+```{r}
+library(rpart)
+library(rpart.plot)
+
+set.seed(42)
+fit <- rpart(Classification ~ .,
+            data = train_data,
+            method = "class",
+            control = rpart.control(xval = 10, 
+                                    minbucket = 2, 
+                                    cp = 0), 
+             parms = list(split = "information"))
+
+rpart.plot(fit, extra = 100)
+
+```
+
+#Random Forests
+
+```{r}
+#Random Forests predictions are based on the generation of
+#multiple classification trees.
+#They can be used for both, classification and regression tasks. 
+#Here, it is classification task.
+```
+
+```{r}
+set.seed(42)
+library(randomForest)
+model_rf <- caret::train(Classification ~ .,
+                         data = train_data,
+                         method = "rf",
+                         preProcess = c("scale", "center"),
+                         trControl = trainControl(method = "repeatedcv", 
+                                                  number = 10, 
+                                                  repeats = 10, 
+                                                  savePredictions = TRUE, 
+                                                  verboseIter = FALSE))
+```
+
+```{r}
+#When savePredictions = TRUE is specified,
+#can access the cross-validation resuls with model_rf$pred.
+
+model_rf$finalModel$confusion
+```
+
+#Feature Importance
+
+```{r}
+imp <- model_rf$finalModel$importance
+imp[order(imp, decreasing = TRUE), ]
+```
+
+```{r}
+# estimate variable importance
+importance <- varImp(model_rf, scale = TRUE)
+plot(importance)
+```
+
+#Predicting test data
+
+```{r}
+confusionMatrix(predict(model_rf, test_data), test_data$Classification)
+```
+
+```{r}
+results <- data.frame(actual = test_data$Classification,
+                      predict(model_rf, test_data, type = "prob"))
+
+results$prediction <- ifelse(results$healthy > 0.5, "healthy",
+                             ifelse(results$cancer > 0.5, "cancer", NA))
+
+results$correct <- ifelse(results$actual == results$prediction, TRUE, FALSE)
+
+ggplot(results, aes(x = prediction, fill = correct)) +
+  geom_bar(position = "dodge")
+```
+
+```{r}
+ggplot(results, aes(x = prediction, y = cancer, color = correct, shape = correct)) +
+  geom_jitter(size = 3, alpha = 0.6)
+
+```
+
+#EXTREME GRADIENT BOOSTING.
+
+Extreme gradient boosting (XGBoost) is a faster and
+improved implementation of gradient boosting for supervised learning.
+
+```{r}
+set.seed(42)
+library(xgboost)
+model_xgb <- caret::train(Classification ~ .,
+                          data = train_data,
+                          method = "xgbTree",
+                          preProcess = c("scale", "center"),
+                          trControl = trainControl(method = "repeatedcv", 
+                                                  number = 10, 
+                                                  repeats = 10, 
+                                                  savePredictions = TRUE, 
+                                                  verboseIter = FALSE))
+```
+#Feature Importance
+```{r}
+importance <- varImp(model_xgb, scale = TRUE)
+plot(importance)
+```
+#Predicting test data
+```{r}
+confusionMatrix(predict(model_xgb, test_data), test_data$Class)
+```
+
+```{r}
+results <- data.frame(actual = test_data$Classification,
+                      predict(model_xgb, test_data, type = "prob"))
+
+results$prediction <- ifelse(results$healthy > 0.5, "healthy",
+                             ifelse(results$cancer > 0.5, "cancer", NA))
+
+results$correct <- ifelse(results$actual == results$prediction, TRUE, FALSE)
+
+ggplot(results, aes(x = prediction, fill = correct)) +
+  geom_bar(position = "dodge")
+```
+
+```{r}
+ggplot(results, aes(x = prediction, y = healthy, color = correct, shape = correct)) +
+  geom_jitter(size = 3, alpha = 0.6)
+```
+
+#Feature Selection
+
+#Correlation
+
+```{r}
+library(corrplot)
+
+# calculate correlation matrix
+corMatMy <- cor(train_data[, 1:9])
+corrplot(corMatMy, order = "hclust")
+```
+
+```{r}
+#Apply correlation filter at 0.70:
+highlyCor <- colnames(train_data[, -1])[findCorrelation(corMatMy, cutoff = 0.7, verbose = TRUE)]
+```
+
+
+```{r}
+# which variables are flagged for removal?
+highlyCor
+#then we remove these variables
+train_data_cor <- train_data[, which(!colnames(train_data) %in% highlyCor)]
+```
+
+#GRID SEARCH WITH CARET
+
+#Automatic Grid
+
+```{r}
+set.seed(42)
+model_rf_tune_auto <- caret::train(Classification ~ .,
+                         data = train_data,
+                         method = "rf",
+                         preProcess = c("scale", "center"),
+                         trControl = trainControl(method = "repeatedcv", 
+                                                  number = 10, 
+                                                  repeats = 10, 
+                                                  savePredictions = TRUE, 
+                                                  verboseIter = FALSE,
+                                                  search = "random"),
+                         tuneLength = 15)
+```
+
+```{r}
+model_rf_tune_auto
+```
+
+```{r}
+plot(model_rf_tune_auto) 
+  
+```
+
+
+#NEURAL NETWORK MODEL
+ 
+```{r}
+library(nnet)
+model_nnet<-nnet(Classification ~. ,
+                 data= train_data,
+                 size=8
+)
+```
+
+```{r}
+library(NeuralNetTools)
+# Plot a neural interpretation diagram for a neural network object
+plotnet(model_nnet, cex_val =.8,max_sp=T,circle_cex=5,circle_col = 'red')
+```
+
+```{r}
+#Relative importance of input variables in neural networks using Garson's algorithm:
+garson(model_nnet) +
+   theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+```{r}
+
+olden(model_nnet) +
+   theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+Here both the positve and negative value represents relative 
+contibutions of each connection weight among the variables
+```{r}
+#Predict
+predict_nnet <- predict(model_nnet,test_data, type = "class")
+```
+
+```{r}
+#Draw the crosstable
+
+library(gmodels)
+CrossTable(test_data$Class,predict_nnet,prop.chisq = F,prop.r = F,prop.c = F,dnn =c("Actual Diagnosis","Predict Diagnosis"))
+```
+

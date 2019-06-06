@@ -1,0 +1,36 @@
+Number of Instances
+961
+
+Number of Attributes: 6
+6 (1 goal field, 1 non-predictive, 4 predictive attributes)
+
+Attribute Information:
+BI-RADS assessment: 1 to 5 (ordinal)
+Age: patient's age in years (continuous)
+Shape (Mass shape, categorical):
+   round=1
+   oval=2
+   lobular=3
+   irregular=4
+Margin: mass margin (categorical):
+   circumscribed=1
+   microlobulated=2
+   obscured=3
+   ill-defined=4
+   spiculated=5
+Density: mass density (ordinal)
+   high=1
+   iso=2
+   low=3
+   fat-containing=4
+Severity: benign=0 or malignant=1 (binominal)
+Missing Attribute Values: Yes
+BI-RADS assessment: 2
+Age: 5
+Shape: 31
+Margin: 48
+Density: 76
+Severity: 0
+Class Distribution: benign:
+Benign: 516
+Malignant: 445
