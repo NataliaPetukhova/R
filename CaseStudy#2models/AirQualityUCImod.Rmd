@@ -1,0 +1,498 @@
+---
+title: "AirQualityUCI"
+author: "Natalia"
+date: "31 May 2019"
+output: pdf_document
+---
+```{r}
+data <- read.csv2("C://Users//Natalia//Desktop//ITMO//R//CaseStudy#2models//AirQualityUCI.csv", header = TRUE, sep = ";")
+head(data)              
+```
+
+```{r}
+str(data)
+summary(data)
+```
+
+```{r}
+#Delete empty columns and unusful data:
+data$X <- NULL
+data$X.1 <- NULL
+data$Date <- NULL
+data$Time <- NULL
+head(data)
+```
+
+
+
+```{r}
+# convert all variables into numeric:
+
+dt <- data.matrix(data)
+dt <- data.frame(dt)
+str(dt)
+summary(dt)
+
+```
+
+```{r}
+library(tidyverse)
+map_int(dt, function(.x) sum(is.na(.x)))
+```
+
+
+```{r}
+# Delete empty rows from the end of the dataframe:
+
+dt <- dt[-c(9358:9471),] 
+tail(dt)
+
+```
+
+
+```{r}
+
+map_int(dt, function(.x) sum(is.na(.x)))
+```
+
+
+
+```{r}
+#There are some values = "-200" and "-200.0" so lets replace them to NAs:
+
+dt <- na_if(dt, -200)
+
+summary(dt)
+
+```
+
+```{r}
+
+library(tidyverse)
+map_int(dt, function(.x) sum(is.na(.x)))
+```
+
+```{r}
+#column NMHC.GT. is almost NAs values so let's get rid of it:
+
+dt$NMHC.GT. <- NULL
+```
+
+```{r}
+
+#let's see each variable:
+library(ggplot2)
+
+#plot all numeric variables:
+boxplot(dt)
+
+```
+```{r}
+#normalise the data for the same scale:
+dt <- scale(dt, center = TRUE, scale = TRUE)
+```
+
+
+```{r}
+library(mice)
+md.pattern(dt)
+library(VIM)
+aggr_plot <- aggr(dt, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE, labels=names(dt), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
+
+```
+
+```{r}
+#Impute missing data:
+tempData <- mice(dt,m=5,maxit=50,meth='pmm',seed=500, print = FALSE)
+summary(tempData)
+```
+
+```{r}
+cdt <- complete(tempData,1)
+```
+
+```{r}
+map_int(cdt, function(.x) sum(is.na(.x)))
+```
+
+
+```{r}
+cdt <- as.data.frame(cdt)
+summary(cdt)
+str(cdt)
+```
+
+
+
+```{r}
+# To see the data distribution:
+library(DataExplorer)
+plot_histogram(cdt)
+plot_density(cdt)
+
+```
+
+```{r}
+# let's make a boxplot for tidy data (cdt) to check the scales of the variables:
+
+ggplot(stack(data.frame(cdt)), aes(x = ind, y = values)) +
+geom_boxplot() +
+guides(fill = FALSE) +
+geom_boxplot() +
+stat_summary(fun.y = mean, geom = "point") + coord_flip()
+
+```
+
+```{r}
+
+#To see the correlation matrix:
+library(GGally)
+ggcorr(cdt, nbreaks = 4, palette = "RdGy", label = TRUE, label_size = 3, label_color = "white", hjust = 0.8)
+summary(cdt)
+```
+
+```{r}
+ggpairs(cdt,
+        lower = list(continuous = wrap("points",
+                                       alpha = 0.004,
+                                       color = "blue",
+                                       size = .5)))
+```
+
+```{r}
+# Correlation matrix:
+library(corrplot)
+corMatMy <- cor(cdt)
+corrplot(corMatMy, order = "hclust")
+```
+
+```{r}
+library(ggcorrplot)
+corr <- round(cor(cdt), 1)
+p.mat <- cor_pmat(cdt)
+ggcorrplot(corr, method = "circle")
+
+ggcorrplot(corr, hc.order = TRUE, outline.col = "white", type = "lower", p.mat = p.mat)
+
+
+```
+
+```{r}
+#Try to understand degree of linearity between RH output and other input features
+#plot all X-features against output variable C6H6.GT:
+
+lr1 <- lm(C6H6.GT. ~ CO.GT., data = cdt)
+summary(lr1)
+ggplot(lr1, aes(x = CO.GT., y = C6H6.GT.)) +
+  geom_point() +
+  stat_smooth(method = lm) +
+  geom_line(aes(y = .fitted), color = "red", size = 1)
+ 
+```
+
+```{r}
+lr2 <- lm(C6H6.GT. ~ PT08.S1.CO., data = cdt)
+summary(lr2)
+ggplot(lr2, aes(x = PT08.S1.CO., y = C6H6.GT.)) +
+  geom_point() +
+  stat_smooth(method = lm) +
+  geom_line(aes(y = .fitted), color = "red", size = 1)
+```
+
+
+```{r}
+lr3 <- lm(C6H6.GT. ~ PT08.S2.NMHC., data = cdt)
+summary(lr3)
+ggplot(lr3, aes(x = PT08.S2.NMHC., y = C6H6.GT.)) +
+  geom_point() +
+  stat_smooth(method = lm) +
+  geom_line(aes(y = .fitted), color = "red", size = 1)
+```
+
+```{r}
+lr4 <- lm(C6H6.GT. ~ NOx.GT., data = cdt)
+summary(lr4)
+ggplot(lr4, aes(x = NOx.GT., y = C6H6.GT.)) +
+  geom_point() +
+  stat_smooth(method = lm)+
+  geom_line(aes(y = .fitted), color = "red", size = 1)
+```
+
+```{r}
+lr5 <- lm(C6H6.GT. ~ PT08.S3.NOx., data = cdt)
+summary(lr5)
+ggplot(lr5, aes(x = PT08.S3.NOx., y = C6H6.GT.)) +
+  geom_point() +
+  stat_smooth(method = lm) +
+  geom_line(aes(y = .fitted), color = "red", size = 1)
+```
+
+```{r}
+lr6 <- lm(C6H6.GT. ~ NO2.GT., data = cdt)
+summary(lr6)
+ggplot(lr6, aes(x = NO2.GT., y = C6H6.GT.)) +
+  geom_point() +
+  stat_smooth(method = lm) +
+  geom_line(aes(y = .fitted), color = "red", size = 1)
+```
+
+```{r}
+lr7 <- lm(C6H6.GT. ~ PT08.S4.NO2., data = cdt)
+summary(lr7)
+ggplot(lr7, aes(x = PT08.S4.NO2., y = C6H6.GT.)) +
+  geom_point() +
+  stat_smooth(method = lm) +
+  geom_line(aes(y = .fitted), color = "red", size = 1)
+```
+
+```{r}
+lr8 <- lm(C6H6.GT. ~ PT08.S5.O3., data = cdt)
+summary(lr8)
+ggplot(lr8, aes(x = PT08.S5.O3., y = C6H6.GT.)) +
+  geom_point() +
+  stat_smooth(method = lm) +
+  geom_line(aes(y = .fitted), color = "red", size = 1)
+```
+
+```{r}
+lr9 <- lm(C6H6.GT. ~ RH, data = cdt)
+summary(lr9)
+ggplot(lr9, aes(x = RH, y = C6H6.GT.)) +
+  geom_point() +
+  stat_smooth(method = lm) +
+  geom_line(aes(y = .fitted), color = "red", size = 1)
+```
+
+```{r}
+lr10 <- lm(C6H6.GT. ~ AH, data = cdt)
+summary(lr10)
+ggplot(lr10, aes(x = AH, y = C6H6.GT.)) +
+  geom_point() +
+  stat_smooth(method = lm) +
+  geom_line(aes(y = .fitted), color = "red", size = 1)
+```
+
+```{r}
+
+# Find the best model for prediction:
+lmMod <- lm(C6H6.GT. ~ . , data = cdt)
+selectedMod <- step(lmMod)
+summary(selectedMod)
+```
+
+```{r}
+#Linear Regression, the Null Hypothesis is that the coefficients 
+#associated with the variables is equal to zero. 
+#The alternate hypothesis is that the coefficients are not equal to zero
+#(i.e. there exists a relationship between the independent variable in
+#question and the dependent variable).
+```
+
+```{r}
+library(olsrr)
+#to find the best model:
+
+k <- ols_step_all_possible(lmMod)
+plot(k)
+ols_step_best_subset(lmMod)
+```
+
+```{r}
+#Check all variables for their p-values:
+
+ols_step_forward_p(lmMod, penter = 0)
+```
+
+```{r}
+# from all statistic metrics let's choose ~CO.GT. model as more appropriate for further analysis:
+#TASK: create train-test sets, plot the model, for the test
+#set color real and predicted points differently; R^2 and p-value to title
+
+```
+
+
+```{r}
+# Prepare data for prediction and model training (75%):
+
+library(caTools)
+set.seed(42) 
+sample <- sample.split(cdt, SplitRatio = 0.75)
+train <- subset(cdt, sample == TRUE)
+test  <- subset(cdt, sample == FALSE)
+
+```
+
+```{r}
+new_mod <- lm(data = train, C6H6.GT. ~ CO.GT.)
+summary(new_mod)
+```
+
+```{r}
+ggplot(data = train, aes(x = CO.GT., y = C6H6.GT.)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
+```{r}
+pred <- predict(new_mod, newdata = test)
+head(pred)
+```
+
+
+```{r}
+test$C6H6.GT.pred <- pred
+head(test)
+```
+
+```{r}
+ggplot(train, aes(x = CO.GT., y = C6H6.GT.)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "red" ) +
+  geom_point(data = test, aes(y = C6H6.GT.), color = "blue") +
+  theme_bw() +
+  geom_label(aes(x = 5, y = 0), hjust = 0, 
+             label = paste("Adj R2 = ",signif(summary(new_mod)$adj.r.squared, 5),
+                                               "\nIntercept =",signif(new_mod$coef[[1]],5 ),
+                                               " \nSlope =",signif(new_mod$coef[[2]], 5),
+                                               " \nP =",signif(summary(new_mod)$coef[2,4], 5)))
+```
+
+
+```{r}
+ggplot(train, aes(x = CO.GT., y = C6H6.GT.)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "red" ) +
+  geom_point(data = test, aes(y = C6H6.GT.pred), color = "green") +
+  theme_bw() +
+  geom_label(aes(x = 5, y = 0), hjust = 0, 
+             label = paste("Adj R2 = ",signif(summary(new_mod)$adj.r.squared, 5),
+                                               "\nIntercept =",signif(new_mod$coef[[1]],5 ),
+                                               " \nSlope =",signif(new_mod$coef[[2]], 5),
+                                               " \nP =",signif(summary(new_mod)$coef[2,4], 5)))
+```
+
+
+```{r}
+ggplot(train, aes(x = CO.GT., y = C6H6.GT.)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "red" ) +
+  geom_point(data = test, aes(y = C6H6.GT.), color = "blue") +
+  geom_point(data = test, aes(y = C6H6.GT.pred), color = "green") +
+  theme_bw() +
+  geom_label(aes(x = 5, y = 0), hjust = 0, 
+             label = paste("Adj R2 = ",signif(summary(new_mod)$adj.r.squared, 5),
+                                               "\nIntercept =",signif(new_mod$coef[[1]],5 ),
+                                               " \nSlope =",signif(new_mod$coef[[2]], 5),
+                                               " \nP =",signif(summary(new_mod)$coef[2,4], 5)))
+
+```
+
+
+```{r}
+#Detecting multicollinearity in a regression model:
+mod <- lm(C6H6.GT. ~ ., data = train)
+summary(mod)
+car::vif(mod)
+```
+
+```{r}
+#Remove variables with VIF>10:
+
+model <- lm(C6H6.GT. ~.-PT08.S2.NMHC.-PT08.S4.NO2.-T -AH, data = train)
+summary(model)
+```
+
+
+```{r}
+#variance inflation factor (VIF) is the ratio of variance in a model 
+#with multiple terms, divided by the variance of a model with one term alone.
+#It quantifies the severity of multicollinearity in an ordinary least squares 
+#regression analysis. It provides an index that measures how much 
+#the variance (the square of the estimate's standard deviation) of 
+#an estimated regression coefficient is increased because of collinearity.
+```
+
+```{r}
+library(olsrr)
+ols_coll_diag(model)
+```
+
+```{r}
+#Plot to detect non-linearity, influential observations and outliers. 
+#Consists of side-by-side quantile plots of the centered fit and the residuals. 
+#It shows how much variation in the data is explained by the fit and 
+#how much remains in the residuals. For inappropriate models, 
+#the spread of the residuals in such a plot is often greater than 
+#the spread of the centered fit.
+
+ols_plot_resid_fit_spread(model)
+```
+
+```{r}
+#Plot of observed vs fitted values to assess the fit of the model. 
+#Ideally, all your points should be close to a regressed diagonal line. 
+#Draw such a diagonal line within your graph and check out where the points lie.
+#If your model had a high R Square, all the points would be close to this diagonal line.
+#The lower the R Square, the weaker the Goodness of fit of your model, 
+#the more foggy or dispersed your points are from this diagonal line.
+
+ols_plot_obs_fit(model)
+```
+
+```{r}
+ols_plot_diagnostics(model)
+```
+```{r}
+summary(model)
+```
+
+```{r}
+library(plotly)
+plot_ly(data = test, 
+        z = ~C6H6.GT.,
+        y = ~CO.GT.,
+        x = ~PT08.S3.NOx.,
+        opacity = 0.7)
+```
+
+```{r}
+library(caTools)
+set.seed(42) 
+sample <- sample.split(cdt, SplitRatio = 0.75)
+trainm <- subset(cdt, sample == TRUE)
+testm  <- subset(cdt, sample == FALSE)
+
+```
+
+
+
+```{r}
+prognosis <- predict(model, newdata = testm)
+head(prognosis)
+```
+
+```{r}
+testm$C6H6.GT.pred <- prognosis
+head(testm)
+```
+
+```{r}
+ggplot(trainm, aes(x = CO.GT., y = C6H6.GT.)) +
+  geom_point() +
+  geom_smooth(method = "glm", color = "red" ) +
+  geom_point(data = testm, aes(y = C6H6.GT.pred), color = "green") +
+  theme_bw() +
+  geom_label(aes(x = 5, y = 0), hjust = 0, 
+             label = paste("Adj R2 = ",signif(summary(model)$adj.r.squared, 5),
+                                               "\nIntercept =",signif(model$coef[[1]],5 ),
+                                               " \nSlope =",signif(model$coef[[2]], 5),
+                                               " \nP =",signif(summary(model)$coef[2,4], 5)))
+```
+
+```{r}
+termplot(model, rug = TRUE, partial.resid = TRUE, se = TRUE, main = TRUE, smooth = panel.smooth, span.smth = 1/4)
+```
+
+
+
+
